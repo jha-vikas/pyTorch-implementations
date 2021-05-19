@@ -1,4 +1,5 @@
-import torch                                       # Torch import
+import torch
+from torch.nn.modules.activation import Tanh                                       # Torch import
 import torchvision                                 # importing torchvision
 from torch import nn                               # Contains basic building blocks for graphs
 from torch.utils.data import DataLoader            # creates iterable/map style over dataset for multiple batches, shuffling
@@ -9,6 +10,13 @@ from matplotlib import pyplot as plt
 
 ''' torch expects data in form (B, C, H, W) -> Batch(num of image in the batch), Channel, Height, Width
 In order to script the transformations, please use torch.nn.Sequential instead of Compose.
+
+* torch.nn.Functional contains some useful functions like activation functions a convolution operations 
+you can use. However, these are not full layers so if you want to specify a layer of any kind you should 
+use torch.nn.Module.
+* You would use the torch.nn.Functional conv operations to define a custom layer for example with a 
+convolution operation, but not to define a standard convolution layer.
+
 
 Steps:
 1. The MNIST iamges are vector of size 784. Images are centered form -1 to 1. To view, centre them at 0.5 with spread between 0 & 1.
@@ -95,17 +103,45 @@ class Autoencoder(nn.Module):
 model = Autoencoder().to(device)
 criterion = nn.MSELoss()
 
+n_feature = 6
 
-'''
 class CNN_autoencoder(nn.Module):
-    yet to implement
-'''
+    def __init__(self):
+        super().__init__()
+        self.encoder = nn.Sequential(
+            nn.Conv2d(in_channels=1, out_channels=4, kernel_size=(3,3)),  # from 1 ---> 4, size = 26x26
+            #nn.ReLU(),
+            nn.Conv2d(in_channels=4, out_channels=16, kernel_size=(3,3)),  # from 4 --> 16, size = 24x24
+            nn.ReLU(),     #
+            nn.MaxPool2d(2,2),                                              # size=12x12
+            #nn.Tanh()
+        )
+
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(in_channels=16, out_channels=4, kernel_size=(3,3)),  # 16 --> 4, size=14*14
+            #nn.ReLU(),
+            nn.ConvTranspose2d(in_channels=4, out_channels=1, kernel_size=(2,2), stride=2),  # 4 --> 1, size=28*28
+            #nn.ReLU(),
+            nn.Tanh()                  # TanH is recommended as the output image pixel intensities have to lie between -1 & 1
+        )
+
+    def forward(self, x):
+        for l in self.encoder:
+            x = l(x)
+        for l in self.decoder:
+            x = l(x)
+        return x
+
+conv_model = CNN_autoencoder().to(device)
+# criterion remains same
 
 # 6. Optimizer
 learning_rate = 1e-3
 
+
 optimizer = torch.optim.Adam(
-    model.parameters(),
+    #model.parameters(),       # uncomment for standard AE
+    conv_model.parameters(),   # uncomment for CNN AE
     lr=learning_rate
 )
 
@@ -116,13 +152,14 @@ for epoch in range(num_epochs):
     for data in dataloader:
         img, _ = data
         img    = img.to(device)
-        img    = img.view(img.size(0), -1)  # tensor to shape mentioned view(). '-1' means other dim is inferred
+        #img    = img.view(img.size(0), -1)  # tensor to shape mentioned view(). '-1' means other dim is inferred, comment for linear AE
 
         #noise = do(torch.ones(img.shape)).to(device)   # uncomment for variational AE
         #img_bad = (img * noise).to(device)             # uncomment for variational AE
 
         #************************ forward *************************
-        output = model(img)                             # feed img_bad for variational AE
+        #output = model(img)                             # feed img_bad for variational AE
+        output = conv_model(img)
         loss   = criterion(output, img.data)
         #************************ forward *************************
         optimizer.zero_grad()
@@ -131,5 +168,3 @@ for epoch in range(num_epochs):
     # ***************************** log ***************************
     print(f'epoch [{epoch + 1}/{num_epochs}], loss:{loss.item(): .4f}')
     display_images(None, output)                        # (img_bad, output) for variational AE
-
-
