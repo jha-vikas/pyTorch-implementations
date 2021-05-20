@@ -9,7 +9,6 @@ from matplotlib import pyplot as plt
 
 
 ''' torch expects data in form (B, C, H, W) -> Batch(num of image in the batch), Channel, Height, Width
-In order to script the transformations, please use torch.nn.Sequential instead of Compose.
 
 * torch.nn.Functional contains some useful functions like activation functions a convolution operations 
 you can use. However, these are not full layers so if you want to specify a layer of any kind you should 
@@ -147,19 +146,20 @@ optimizer = torch.optim.Adam(
 
 # 7. Training loop
 num_epochs = 20
-# do = nn.Dropout()                   # comment out for standard AE
+do = nn.Dropout()                   # comment out for standard AE
 for epoch in range(num_epochs):
     for data in dataloader:
         img, _ = data
         img    = img.to(device)
         #img    = img.view(img.size(0), -1)  # tensor to shape mentioned view(). '-1' means other dim is inferred, comment for linear AE
 
-        #noise = do(torch.ones(img.shape)).to(device)   # uncomment for variational AE
+        noise = do(torch.ones(img.shape)).to(device)   # uncomment for variational AE
         #img_bad = (img * noise).to(device)             # uncomment for variational AE
 
         #************************ forward *************************
-        #output = model(img)                             # feed img_bad for variational AE
-        output = conv_model(img)
+        output = conv_model(img)                             # uncomment for fully connected
+                                                        # feed img_bad for over AE
+        #output = conv_model(img)                       # uncomment for convulation AE
         loss   = criterion(output, img.data)
         #************************ forward *************************
         optimizer.zero_grad()
